@@ -89,7 +89,7 @@ for (m in 1:length(filenames)) {
     # cycle through each date of data collection
     for (d in 1:length(all_dates)) {
         # trim the data for this monitor for the current day
-        data_trimmed = trimData(data = data, start.date = all_dates[d], start.time = '06:00', n.days = n.days, bin = bin.size, t.cycle = t.cycle)
+        data_trimmed = trimData(data = data, start.date = all_dates[d], start.time = zt0, n.days = n.days, bin = bin.size, t.cycle = t.cycle)
         
         # calculate sleep stats for this monitor for the current day
         sleep_stat = sleepStat(data = data_trimmed, sleep.def = sleep_def, t.cycle = t.cycle, photoperiod = 12)
