@@ -1,18 +1,21 @@
 # author: madelyn miles
-# date: 260326
+# date: 260706
 # purpose: rip sleepStat from phase package for my own uses >:D
 # version history...
 #   v1: calculates and exports daily sleep stats for each channel
 #   v2: also exports sleep traces for each day and removes dead flies
 #   v3: sorts stats by condition; makes a matrix of tst for easy copy/paste
 #   v4: bugs squashed; added outputs for sleep architecture stats
+#   v5: squashed bug where tst_all got messed up for experiments spanning more
+#         than one month; added labels to sleep trace output
 # how to use...
 #   1. pass DAM files through DAMFileScan software (available on Trikinetics
 #      site). script defaults to 1-minute bins, but this can be changed below.
 #      export with settings '+Ct' and 'Sum into bin', and do not make channel
-#      files. dates can be set to anything (actual data collection is set in
-#      this script) but a tighter window can reduce the time/computational cost
-#      of loading the files into R during this script.
+#      files. start date MUST be at least the day before data collection window
+#      begins, though actual data collection window is set in this script (e.g.,
+#      if flies were loaded into incubators on Mar 26 and data collection is set
+#      to begin on Mar 27 @ ZT0 (6am), then scan from Mar 26 @ 11:59 at latest).
 #   2. create an experiment folder on your hard drive. this folder should have a
 #      copy of this script (so you can save the settings for each analysis run),
 #      the DAMFileScan outputs, and 2 .csv configuration files detailing 1) the
@@ -32,20 +35,21 @@ library(utils)
 ##########################
 
 # folder where all scanned monitor files are stored (and where data will output)
-experiment_folder = '/Users/maddym/Desktop/rothenfluh lab/experiments/analysis/phase_collate demo/'
+experiment_folder = '/Users/maddym/Desktop/rothenfluh lab/experiments/3_parallel_exposure_sleep/3.17_cs.wb_AMPH/'
 
 # names of each scanned monitor file in the data folder
-filenames = c('251216CtM004.txt','251216CtM005.txt','251216CtM006.txt','251216CtM007.txt')
+filenames = c('317scanCtM050.txt','317scanCtM051.txt','317scanCtM052.txt',
+              '317scanCtM053.txt','317scanCtM054.txt','317scanCtM055.txt')
 
 # dates for each experimental day, typically excluding days flies were flipped
-baseline_dates = c('06 Dec 25','07 Dec 25')
-exposure_dates = c('09 Dec 25','10 Dec 25')
-recovery_dates = c('12 Dec 25','13 Dec 25')
+baseline_dates = c('28 Mar 26','29 Mar 26')
+exposure_dates = c('31 Mar 26','01 Apr 26')
+recovery_dates = c('03 Apr 26','04 Apr 26')
 # must format dates as DD Mon YY or else PhaseR gets grumpy :)
 
 # .csv files configuring the conditions and rebound calculations...
-channel_labels = '4.4_channelconfig.csv' # column = monitor and row = channel
-rebound_calcs = '4.4_reboundconfig.csv' # each row is a comparison; column 1 = control, column 2 = experimental
+channel_labels = '3.17_channelconfig.csv' # column = monitor and row = channel
+rebound_calcs = '3.17_reboundconfig.csv' # each row is a comparison; column 1 = control, column 2 = experimental
 # do NOT use any backslashes inside these config files
 # need condition labels in 'channel_labels' to match those in 'rebound_calcs'
 
@@ -181,9 +185,9 @@ for (g in 1:num_groups) { # loop groups
                 if (channel_setup[c,m] == group_names[g]) { # index channel_setup to check if this entry is in this group
                     # if the list entry for this condition is empty, first make a dataframe
                     if (is.null(grouped_stats[[g]])) {
-                        grouped_stats[[g]] = big_stats_df[((d-1)*32)+c,(((m-1)*12)+1:12)]
+                        grouped_stats[[g]] = cbind(big_stats_df[((d-1)*32)+c,(((m-1)*12)+1:12)],data.frame(Experiment.Day=d))
                     } else { # otherwise just rbind to existing dataframe
-                        grouped_stats[[g]] = rbind(grouped_stats[[g]],big_stats_df[((d-1)*32)+c,(((m-1)*12)+1:12)])
+                        grouped_stats[[g]] = rbind(grouped_stats[[g]],cbind(big_stats_df[((d-1)*32)+c,(((m-1)*12)+1:12)],data.frame(Experiment.Day=d)))
                     }
                 }
             }
@@ -209,8 +213,8 @@ night_bout_dur = list()
 
 for (g in 1:length(grouped_stats)){
     # extract day and night tst for each condition
-    day_splitby_date = as.data.frame(split(grouped_stats[[g]]$Day.Total,grouped_stats[[g]]$Date))
-    night_splitby_date = as.data.frame(split(grouped_stats[[g]]$Night.Total,grouped_stats[[g]]$Date))
+    day_splitby_date = as.data.frame(split(grouped_stats[[g]]$Day.Total,grouped_stats[[g]]$Experiment.Day))
+    night_splitby_date = as.data.frame(split(grouped_stats[[g]]$Night.Total,grouped_stats[[g]]$Experiment.Day))
     
     # sum day and night to calculate tst
     tst_splitby_date[[g]] = cbind(data.frame(Condition=rep(group_names[g],length(day_splitby_date[,1]))),(day_splitby_date + night_splitby_date))
@@ -220,19 +224,19 @@ for (g in 1:length(grouped_stats)){
     
     # also extract sleep bout frequency and duration 
     day_bout_dur[[g]] = cbind(data.frame(Condition=rep(group_names[g],length(day_splitby_date[,1]))),
-                              as.data.frame(split(grouped_stats[[g]]$Day.BoutDuration.Mean,grouped_stats[[g]]$Date)))
+                              as.data.frame(split(grouped_stats[[g]]$Day.BoutDuration.Mean,grouped_stats[[g]]$Experiment.Day)))
     colnames(day_bout_dur[[g]]) = c('Condition',all_dates) # label each row with the condition that it is
     
     night_bout_dur[[g]] = cbind(data.frame(Condition=rep(group_names[g],length(day_splitby_date[,1]))),
-                                as.data.frame(split(grouped_stats[[g]]$Night.BoutDuration.Mean,grouped_stats[[g]]$Date)))
+                                as.data.frame(split(grouped_stats[[g]]$Night.BoutDuration.Mean,grouped_stats[[g]]$Experiment.Day)))
     colnames(night_bout_dur[[g]]) = c('Condition',all_dates) # label each row with the condition that it is
     
     day_bout_freq[[g]] = cbind(data.frame(Condition=rep(group_names[g],length(day_splitby_date[,1]))),
-                               as.data.frame(split(grouped_stats[[g]]$Day.BoutNumber,grouped_stats[[g]]$Date)))
+                               as.data.frame(split(grouped_stats[[g]]$Day.BoutNumber,grouped_stats[[g]]$Experiment.Day)))
     colnames(day_bout_freq[[g]]) = c('Condition',all_dates) # label each row with the condition that it is
     
     night_bout_freq[[g]] = cbind(data.frame(Condition=rep(group_names[g],length(day_splitby_date[,1]))),
-                                 as.data.frame(split(grouped_stats[[g]]$Night.BoutNumber,grouped_stats[[g]]$Date)))
+                                 as.data.frame(split(grouped_stats[[g]]$Night.BoutNumber,grouped_stats[[g]]$Experiment.Day)))
     colnames(night_bout_freq[[g]]) = c('Condition',all_dates) # label each row with the condition that it is
 }
 
@@ -242,13 +246,30 @@ night_bout_freq = do.call("rbind", night_bout_freq)
 day_bout_dur = do.call("rbind", day_bout_dur)
 night_bout_dur = do.call("rbind", night_bout_dur)
 
+
+
+# label each channel in sleep traces file with group name, and remove the ZT
+# columns between monitors for easier copy/paste
+
+chopped_trace_df = big_trace_df
+
+# chop all ZT-containing columns except the first
+for (c in sort(seq(33,33*num_monitors-1,33),TRUE)+1) {
+  chopped_trace_df = chopped_trace_df[-c]
+}
+
+colnames(chopped_trace_df) = c('ZT',unlist(channel_setup,use.names=FALSE))
+
+
 # export a single .csv with all TSTs arranged neatly for copy/paste into Prism
 if (save_easy_tst) {
-    write.csv(easy_tst, file = paste(experiment_folder,'tst_all.csv',sep=''), row.names = F)
-    write.csv(day_bout_freq, file = paste(experiment_folder,'day_bout_freq.csv',sep=''), row.names = F)
-    write.csv(night_bout_freq, file = paste(experiment_folder,'night_bout_freq.csv',sep=''), row.names = F)
-    write.csv(day_bout_dur, file = paste(experiment_folder,'day_bout_dur.csv',sep=''), row.names = F)
-    write.csv(night_bout_dur, file = paste(experiment_folder,'night_bout_dur.csv',sep=''), row.names = F)
+  write.csv(easy_tst, file = paste(experiment_folder,'tst_all.csv',sep=''), row.names = F)
+  write.csv(day_bout_freq, file = paste(experiment_folder,'day_bout_freq.csv',sep=''), row.names = F)
+  write.csv(night_bout_freq, file = paste(experiment_folder,'night_bout_freq.csv',sep=''), row.names = F)
+  write.csv(day_bout_dur, file = paste(experiment_folder,'day_bout_dur.csv',sep=''), row.names = F)
+  write.csv(night_bout_dur, file = paste(experiment_folder,'night_bout_dur.csv',sep=''), row.names = F)
+  
+  write.csv(chopped_trace_df, file = paste(experiment_folder,'tstrace_labeled.csv',sep=''), row.names = F)
 }
 
 
