@@ -254,8 +254,10 @@ night_bout_dur = do.call("rbind", night_bout_dur)
 chopped_trace_df = big_trace_df
 
 # chop all ZT-containing columns except the first
-for (c in sort(seq(33,33*num_monitors-1,33),TRUE)+1) {
-  chopped_trace_df = chopped_trace_df[-c]
+if (length(filenames) > 1) {
+  for (c in sort(seq(33,33*num_monitors-1,33),TRUE)+1) {
+    chopped_trace_df = chopped_trace_df[-c]
+  }
 }
 
 colnames(chopped_trace_df) = c('ZT',unlist(channel_setup,use.names=FALSE))
